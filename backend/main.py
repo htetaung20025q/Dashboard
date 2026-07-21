@@ -48,7 +48,7 @@ def authenticate_user(db: Session, username: str, password: str):
 # --- AUTHENTICATION ENDPOINTS ---
 
 @app.post("/api/auth/login", response_model=schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -57,7 +57,33 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user.username, "role": user.role})
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=86400,
+        samesite="lax",
+        secure=False  # Change to True if HTTPS in prod
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"detail": "Successfully logged out"}
+
+@app.post("/api/auth/register-employee", response_model=schemas.EmployeeResponse, status_code=status.HTTP_201_CREATED)
+def register_new_employee(reg: schemas.EmployeeRegister, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_username(db, reg.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    db_emp = crud.get_employee_by_email(db, reg.email)
+    if db_emp:
+        raise HTTPException(status_code=400, detail="Email already registered")
+        
+    emp = crud.register_employee(db=db, reg=reg)
+    emp.total_salary = emp.base_salary + emp.bonus
+    return emp
 
 @app.get("/api/auth/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(get_current_user)):

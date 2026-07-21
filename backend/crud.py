@@ -69,6 +69,31 @@ def create_employee(db: Session, employee: schemas.EmployeeCreate):
     
     return db_employee
 
+def register_employee(db: Session, reg: schemas.EmployeeRegister):
+    db_employee = models.Employee(
+        first_name=reg.first_name,
+        last_name=reg.last_name,
+        email=reg.email,
+        position=reg.position,
+        base_salary=0.0,
+        bonus=0.0
+    )
+    db.add(db_employee)
+    db.commit()
+    db.refresh(db_employee)
+
+    hashed_pw = get_password_hash(reg.password)
+    db_user = models.User(
+        username=reg.username,
+        hashed_password=hashed_pw,
+        role="Employee",
+        employee_id=db_employee.id
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_employee
+
 def update_employee(db: Session, employee_id: int, employee_update: schemas.EmployeeUpdate):
     db_employee = get_employee(db, employee_id)
     if not db_employee:

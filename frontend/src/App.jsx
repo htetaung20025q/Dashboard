@@ -47,7 +47,12 @@ export default function App() {
     setActiveTab(userProfile.role === 'Admin' ? 'dashboard' : 'attendance');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.error('Failed to trigger backend logout:', err);
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

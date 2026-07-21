@@ -4,6 +4,7 @@ const API_BASE_URL = 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 // Request interceptor to attach JWT token
@@ -45,6 +46,14 @@ export const authAPI = {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
+    return response.data;
+  },
+  logout: async () => {
+    const response = await api.post('/auth/logout');
+    return response.data;
+  },
+  register: async (regData) => {
+    const response = await api.post('/auth/register-employee', regData);
     return response.data;
   },
   getMe: async () => {

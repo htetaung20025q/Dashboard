@@ -32,6 +32,14 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class EmployeeRegister(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    position: str
+    username: str
+    password: str
+
 
 # --- Employee Schemas ---
 class EmployeeCreate(BaseModel):
