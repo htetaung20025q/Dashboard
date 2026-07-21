@@ -44,13 +44,16 @@ def create_employee(db: Session, employee: schemas.EmployeeCreate):
         position=employee.position,
         base_salary=employee.base_salary,
         bonus=employee.bonus,
+        phone=employee.phone,
+        address=employee.address,
+        emergency_contact_name=employee.emergency_contact_name,
+        emergency_contact_phone=employee.emergency_contact_phone
     )
     db.add(db_employee)
     db.commit()
     db.refresh(db_employee)
 
     # Automatically create a corresponding user login for the employee
-    # Default username: first_name.last_name (lowercase), password: employee123
     username = f"{employee.first_name.lower()}.{employee.last_name.lower()}"
     # check unique
     idx = 1
@@ -135,7 +138,8 @@ def check_in_employee(db: Session, employee_id: int):
     db_attendance = models.Attendance(
         employee_id=employee_id,
         check_in=now,
-        date=today
+        date=today,
+        overtime_hours=0.0
     )
     db.add(db_attendance)
     db.commit()
@@ -152,6 +156,15 @@ def check_out_employee(db: Session, employee_id: int):
         return None
         
     attendance.check_out = now
+    
+    # Calculate OT hours (Standard shift = 8 hours)
+    duration_delta = now - attendance.check_in
+    duration_hours = duration_delta.total_seconds() / 3600.0
+    if duration_hours > 8.0:
+        attendance.overtime_hours = round(duration_hours - 8.0, 2)
+    else:
+        attendance.overtime_hours = 0.0
+
     db.commit()
     db.refresh(attendance)
     return attendance
@@ -163,6 +176,173 @@ def get_employee_attendance_history(db: Session, employee_id: int, skip: int = 0
 
 def get_all_attendance_history(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Attendance).order_by(models.Attendance.check_in.desc()).offset(skip).limit(limit).all()
+
+
+# --- Leave Requests CRUD ---
+def create_leave_request(db: Session, employee_id: int, leave: schemas.LeaveRequestCreate):
+    db_leave = models.LeaveRequest(
+        employee_id=employee_id,
+        leave_type=leave.leave_type,
+        start_date=leave.start_date,
+        end_date=leave.end_date,
+        reason=leave.reason,
+        status="Pending"
+    )
+    db.add(db_leave)
+    db.commit()
+    db.refresh(db_leave)
+    return db_leave
+
+def get_leave_requests(db: Session, employee_id: int = None, skip: int = 0, limit: int = 100):
+    query = db.query(models.LeaveRequest)
+    if employee_id:
+        query = query.filter(models.LeaveRequest.employee_id == employee_id)
+    return query.order_by(models.LeaveRequest.created_at.desc()).offset(skip).limit(limit).all()
+
+def update_leave_status(db: Session, leave_id: int, status: str):
+    db_leave = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == leave_id).first()
+    if not db_leave:
+        return None
+    db_leave.status = status
+    db.commit()
+    db.refresh(db_leave)
+    
+    # Notify employee user
+    user = db.query(models.User).filter(models.User.employee_id == db_leave.employee_id).first()
+    if user:
+        create_notification(
+            db, 
+            user_id=user.id, 
+            title="Leave Request Updated", 
+            message=f"Your {db_leave.leave_type} leave request has been {status.lower()}."
+        )
+    return db_leave
+
+
+# --- Document CRUD ---
+def create_document(db: Session, employee_id: int, file_name: str, file_path: str):
+    db_doc = models.Document(
+        employee_id=employee_id,
+        file_name=file_name,
+        file_path=file_path
+    )
+    db.add(db_doc)
+    db.commit()
+    db.refresh(db_doc)
+    return db_doc
+
+def get_employee_documents(db: Session, employee_id: int):
+    return db.query(models.Document).filter(models.Document.employee_id == employee_id).all()
+
+
+# --- Notice Board CRUD ---
+def create_notice(db: Session, user_id: int, notice: schemas.NoticeCreate):
+    db_notice = models.Notice(
+        title=notice.title,
+        content=notice.content,
+        created_by=user_id
+    )
+    db.add(db_notice)
+    db.commit()
+    db.refresh(db_notice)
+    
+    # Notify all users about the new notice
+    users = db.query(models.User).all()
+    for u in users:
+        create_notification(
+            db, 
+            user_id=u.id, 
+            title="New Announcement", 
+            message=f"Notice: {notice.title}"
+        )
+    return db_notice
+
+def get_notices(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Notice).order_by(models.Notice.created_at.desc()).offset(skip).limit(limit).all()
+
+
+# --- Notifications CRUD ---
+def create_notification(db: Session, user_id: int, title: str, message: str):
+    db_notif = models.Notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        is_read=False
+    )
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+    return db_notif
+
+def get_notifications(db: Session, user_id: int):
+    return db.query(models.Notification).filter(
+        models.Notification.user_id == user_id,
+        models.Notification.is_read == False
+    ).order_by(models.Notification.created_at.desc()).all()
+
+def mark_notification_as_read(db: Session, notification_id: int):
+    db_notif = db.query(models.Notification).filter(models.Notification.id == notification_id).first()
+    if db_notif:
+        db_notif.is_read = True
+        db.commit()
+        db.refresh(db_notif)
+    return db_notif
+
+
+# --- Expense Tracking CRUD ---
+def create_expense(db: Session, employee_id: int, expense: schemas.ExpenseCreate, receipt_path: str = None):
+    db_expense = models.Expense(
+        employee_id=employee_id,
+        amount=expense.amount,
+        category=expense.category,
+        description=expense.description,
+        receipt_path=receipt_path,
+        status="Pending"
+    )
+    db.add(db_expense)
+    db.commit()
+    db.refresh(db_expense)
+    return db_expense
+
+def get_expenses(db: Session, employee_id: int = None, skip: int = 0, limit: int = 100):
+    query = db.query(models.Expense)
+    if employee_id:
+        query = query.filter(models.Expense.employee_id == employee_id)
+    return query.order_by(models.Expense.created_at.desc()).offset(skip).limit(limit).all()
+
+def update_expense_status(db: Session, expense_id: int, status: str):
+    db_expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+    if not db_expense:
+        return None
+    db_expense.status = status
+    db.commit()
+    db.refresh(db_expense)
+
+    # Notify employee user
+    user = db.query(models.User).filter(models.User.employee_id == db_expense.employee_id).first()
+    if user:
+        create_notification(
+            db, 
+            user_id=user.id, 
+            title="Reimbursement Update", 
+            message=f"Your expense request of ${db_expense.amount} has been {status.lower()}."
+        )
+
+    # Automatically post to general FinancialRecord if APPROVED
+    if status == "Approved":
+        emp = db_expense.employee
+        emp_name = f"{emp.first_name} {emp.last_name}" if emp else "Staff"
+        db_record = models.FinancialRecord(
+            type="expense",
+            amount=db_expense.amount,
+            category="Expenses",
+            description=f"Reimbursement: {db_expense.description} ({emp_name})",
+            date=datetime.date.today()
+        )
+        db.add(db_record)
+        db.commit()
+        
+    return db_expense
 
 
 # --- Financial CRUD ---
@@ -211,7 +391,6 @@ def get_financial_stats(db: Session):
         prev_month_end = datetime.date(today.year - 1, 12, 31)
     else:
         prev_month_start = datetime.date(today.year, today.month - 1, 1)
-        # last day of previous month
         prev_month_end = current_month_start - datetime.timedelta(days=1)
 
     # Current Month Stats
@@ -246,7 +425,7 @@ def get_financial_stats(db: Session):
     if prev_net != 0:
         mom_growth = ((current_net - prev_net) / abs(prev_net)) * 100
     elif current_net > 0:
-        mom_growth = 100.0  # From 0/negative to positive
+        mom_growth = 100.0
 
     income_change = 0.0
     if prev_income > 0:
@@ -254,31 +433,27 @@ def get_financial_stats(db: Session):
 
     # Build Chart Data: last 6 months
     chart_data = []
-    # Let's generate the labels and aggregates for the last 6 months
     months_to_fetch = []
     temp_date = today
     for _ in range(6):
         months_to_fetch.append((temp_date.year, temp_date.month))
-        # move to previous month
         if temp_date.month == 1:
             temp_date = datetime.date(temp_date.year - 1, 12, 1)
         else:
             temp_date = datetime.date(temp_date.year, temp_date.month - 1, 1)
     
-    months_to_fetch.reverse()  # Chronological order
+    months_to_fetch.reverse()
 
     month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     
     for year, month in months_to_fetch:
         month_label = f"{month_names[month-1]} {str(year)[2:]}"
-        # Aggregate income
         m_income = db.query(func.sum(models.FinancialRecord.amount)).filter(
             models.FinancialRecord.type == "income",
             extract('year', models.FinancialRecord.date) == year,
             extract('month', models.FinancialRecord.date) == month
         ).scalar() or 0.0
 
-        # Aggregate expenses
         m_expense = db.query(func.sum(models.FinancialRecord.amount)).filter(
             models.FinancialRecord.type == "expense",
             extract('year', models.FinancialRecord.date) == year,
@@ -291,6 +466,22 @@ def get_financial_stats(db: Session):
             expenses=float(m_expense)
         ))
 
+    # Calculate Expense Categories Distribution (For Pie Chart)
+    # Aggregate values by category
+    categories_distribution = []
+    cats_sum = db.query(
+        models.FinancialRecord.category, 
+        func.sum(models.FinancialRecord.amount)
+    ).filter(
+        models.FinancialRecord.type == "expense"
+    ).group_by(models.FinancialRecord.category).all()
+    
+    for cat_name, sum_val in cats_sum:
+        categories_distribution.append(schemas.ExpenseCategoryData(
+            name=cat_name,
+            value=float(sum_val or 0.0)
+        ))
+
     return schemas.FinancialStatsResponse(
         total_income=total_income,
         total_expenses=total_expenses,
@@ -298,5 +489,6 @@ def get_financial_stats(db: Session):
         profit_margin=round(profit_margin, 2),
         mom_growth_rate=round(mom_growth, 2),
         income_change=round(income_change, 2),
-        chart_data=chart_data
+        chart_data=chart_data,
+        category_distribution=categories_distribution
     )

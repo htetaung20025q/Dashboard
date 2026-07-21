@@ -7,13 +7,17 @@ import {
   ArrowUpRight, 
   ArrowDownRight, 
   FileSpreadsheet, 
-  FileText 
+  FileText,
+  PieChart as PieIcon
 } from 'lucide-react';
 import { 
   AreaChart, 
   Area, 
   BarChart, 
   Bar, 
+  PieChart,
+  Pie,
+  Cell,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -65,13 +69,16 @@ export default function Dashboard() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   };
 
+  // Pie chart colors
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#94a3b8'];
+
   return (
     <div className="space-y-8">
       {/* Header section with reports actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Financial Command</h2>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">Real-time revenue, margins, and operational reports.</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Financial Analytics</h2>
+          <p className="text-sm text-slate-500 font-medium mt-0.5">Real-time revenue, margins, and operational metrics.</p>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -139,7 +146,7 @@ export default function Dashboard() {
               {formatCurrency(stats.total_expenses)}
             </h3>
             <div className="flex items-center gap-1 mt-2">
-              <span className="text-xs text-slate-500 font-medium">Outgoings & Salaries</span>
+              <span className="text-xs text-slate-500 font-medium">Outgoings & Reimbursements</span>
             </div>
           </div>
         </div>
@@ -178,10 +185,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Visual Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Visual Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Income vs Expenses Trend Chart */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 lg:col-span-2">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Cashflow History</h3>
             <p className="text-xs text-slate-400 font-medium">Income and expenses over the last 6 months.</p>
@@ -214,27 +221,46 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Income vs Expenses Side-by-Side Comparison */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4">
+        {/* Expense Category Distribution (Pie Chart) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Monthly Allocation</h3>
-            <p className="text-xs text-slate-400 font-medium">Income and expenses comparison per billing month.</p>
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Expense Divisions</h3>
+            <p className="text-xs text-slate-400 font-medium">Breakdown of operational spend by category.</p>
           </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.chart_data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
-                  labelStyle={{ fontWeight: 'bold', color: '#0f172a' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Bar dataKey="income" name="Income" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={30} />
-                <Bar dataKey="expenses" name="Expenses" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={30} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 relative flex items-center justify-center">
+            {stats.category_distribution && stats.category_distribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.category_distribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {stats.category_distribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <span className="text-xs text-slate-400 font-medium">No expenses logged yet.</span>
+            )}
+          </div>
+          
+          {/* Legend */}
+          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 max-h-24 overflow-y-auto pt-2 border-t border-slate-100">
+            {stats.category_distribution && stats.category_distribution.map((entry, index) => (
+              <div key={entry.name} className="flex items-center gap-1.5 truncate">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
+                <span className="truncate">{entry.name}</span>
+                <span className="text-slate-400 font-bold ml-auto">${Math.round(entry.value).toLocaleString()}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

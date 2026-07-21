@@ -5,118 +5,185 @@ import schemas
 import crud
 
 def seed_db():
-    # 1. Create tables
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
     try:
-        # Check if Admin already exists
-        admin_user = crud.get_user_by_username(db, "admin")
-        if admin_user:
-            print("Database already seeded.")
-            return
+        print("Seeding extended database schema...")
 
-        print("Seeding database...")
-
-        # 2. Create Default Admin
+        # 1. Create Default Super Admin (unmapped to employee)
         admin_in = schemas.UserCreate(
-            username="admin",
+            username="superadmin",
             password="admin123",
-            role="Admin"
+            role="Super Admin"
         )
         crud.create_user(db, admin_in)
-        print("Admin user created (admin / admin123)")
+        print("Super Admin created (superadmin / admin123)")
 
-        # 3. Create Default Employees
+        # 2. Create Employees with diverse roles
         employees_data = [
-            {"first_name": "Alice", "last_name": "Smith", "email": "alice@company.com", "position": "Software Engineer", "base_salary": 6500.0, "bonus": 500.0},
-            {"first_name": "Bob", "last_name": "Johnson", "email": "bob@company.com", "position": "Product Manager", "base_salary": 7500.0, "bonus": 1000.0},
-            {"first_name": "Charlie", "last_name": "Brown", "email": "charlie@company.com", "position": "UI/UX Designer", "base_salary": 5800.0, "bonus": 400.0},
-            {"first_name": "Diana", "last_name": "Prince", "email": "diana@company.com", "position": "HR Specialist", "base_salary": 5200.0, "bonus": 300.0},
+            {
+                "first_name": "Alice", 
+                "last_name": "Smith", 
+                "email": "alice@company.com", 
+                "position": "HR Lead", 
+                "base_salary": 6800.0, 
+                "bonus": 400.0,
+                "phone": "555-0199",
+                "address": "123 Cherry Lane, Metropolis",
+                "emergency_contact_name": "John Smith",
+                "emergency_contact_phone": "555-0190"
+            },
+            {
+                "first_name": "Bob", 
+                "last_name": "Johnson", 
+                "email": "bob@company.com", 
+                "position": "Engineering Director", 
+                "base_salary": 8500.0, 
+                "bonus": 1200.0,
+                "phone": "555-0188",
+                "address": "456 Oak Avenue, Gotham",
+                "emergency_contact_name": "Mary Johnson",
+                "emergency_contact_phone": "555-0180"
+            },
+            {
+                "first_name": "Htet", 
+                "last_name": "Aung", 
+                "email": "htetaung@company.com", 
+                "position": "Senior Software Architect", 
+                "base_salary": 7200.0, 
+                "bonus": 600.0,
+                "phone": "999-0123",
+                "address": "789 Pine Road, Yangon",
+                "emergency_contact_name": "U Aung",
+                "emergency_contact_phone": "999-0120"
+            },
+            {
+                "first_name": "Diana", 
+                "last_name": "Prince", 
+                "email": "diana@company.com", 
+                "position": "Support Analyst", 
+                "base_salary": 5000.0, 
+                "bonus": 200.0,
+                "phone": "555-0177",
+                "address": "202 Amazon Way, Themyscira",
+                "emergency_contact_name": "Hippolyta Prince",
+                "emergency_contact_phone": "555-0170"
+            },
         ]
 
-        employees = []
+        # Save employees
+        db_employees = []
         for emp_data in employees_data:
             emp_in = schemas.EmployeeCreate(**emp_data)
-            emp = crud.create_employee(db, emp_in)
-            employees.append(emp)
-            print(f"Employee {emp.first_name} {emp.last_name} created (username: {emp.first_name.lower()}.{emp.last_name.lower()} / password: employee123)")
+            emp = crud.create_employee(db=db, employee=emp_in)
+            db_employees.append(emp)
+            print(f"Employee {emp.first_name} {emp.last_name} created")
 
-        # 4. Seed Attendance History (Last 5 days)
+        # 3. Update User Roles for HR and Manager
+        # Alice is HR
+        alice_user = db.query(models.User).filter(models.User.username == "alice.smith").first()
+        if alice_user:
+            alice_user.role = "HR"
+            print("Set alice.smith role to HR")
+            
+        # Bob is Manager
+        bob_user = db.query(models.User).filter(models.User.username == "bob.johnson").first()
+        if bob_user:
+            bob_user.role = "Manager"
+            print("Set bob.johnson role to Manager")
+
+        # 4. Seed Attendance history (with OT hours)
         today = datetime.date.today()
-        for i in range(5, 0, -1):
+        for i in range(10, 0, -1):
             check_date = today - datetime.timedelta(days=i)
-            # Skip weekends (Saturday=5, Sunday=6)
+            # Skip weekends
             if check_date.weekday() >= 5:
                 continue
 
-            for emp in employees:
-                # Add attendance
-                check_in_time = datetime.datetime.combine(check_date, datetime.time(9, 0)) + datetime.timedelta(minutes=int(hash(emp.first_name) % 30))
-                check_out_time = check_in_time + datetime.timedelta(hours=8, minutes=int(hash(emp.last_name) % 45))
+            for idx, emp in enumerate(db_employees):
+                check_in_time = datetime.datetime.combine(check_date, datetime.time(9, 0)) + datetime.timedelta(minutes=(idx * 10))
+                # Bob and Htet work overtime (9 hours shift -> 1.0 hour OT)
+                hours_worked = 9 if emp.first_name in ["Bob", "Htet"] else 8
+                check_out_time = check_in_time + datetime.timedelta(hours=hours_worked)
                 
                 db_attendance = models.Attendance(
                     employee_id=emp.id,
                     check_in=check_in_time,
                     check_out=check_out_time,
-                    date=check_date
+                    date=check_date,
+                    overtime_hours=float(hours_worked - 8) if hours_worked > 8 else 0.0
                 )
                 db.add(db_attendance)
 
-        # 5. Seed Financial Records (Last 6 Months)
-        # Months offset to populate income/expense data
-        # Let's say current date is July 2026. Seed from Feb 2026 to July 2026
-        financials = [
-            # Feb 2026
-            {"type": "income", "amount": 25000.0, "category": "Sales", "description": "Q1 Software Contracts", "date": datetime.date(2026, 2, 10)},
-            {"type": "income", "amount": 12000.0, "category": "Consulting", "description": "Architecture Review Services", "date": datetime.date(2026, 2, 24)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 2, 1)},
-            {"type": "expense", "amount": 25000.0, "category": "Payroll", "description": "Staff Salaries & Benefits", "date": datetime.date(2026, 2, 28)},
-            {"type": "expense", "amount": 1500.0, "category": "Utilities", "description": "Electricity & Water", "date": datetime.date(2026, 2, 15)},
-            
-            # Mar 2026
-            {"type": "income", "amount": 32000.0, "category": "Sales", "description": "Product Subscription Billing", "date": datetime.date(2026, 3, 10)},
-            {"type": "income", "amount": 15000.0, "category": "Consulting", "description": "Enterprise Development Support", "date": datetime.date(2026, 3, 22)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 3, 1)},
-            {"type": "expense", "amount": 25000.0, "category": "Payroll", "description": "Staff Salaries & Benefits", "date": datetime.date(2026, 3, 28)},
-            {"type": "expense", "amount": 2000.0, "category": "Marketing", "description": "Online Advertising Campaigns", "date": datetime.date(2026, 3, 15)},
-            
-            # Apr 2026
-            {"type": "income", "amount": 28000.0, "category": "Sales", "description": "Subscription Billing", "date": datetime.date(2026, 4, 10)},
-            {"type": "income", "amount": 8000.0, "category": "Consulting", "description": "System Audit Contract", "date": datetime.date(2026, 4, 25)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 4, 1)},
-            {"type": "expense", "amount": 25000.0, "category": "Payroll", "description": "Staff Salaries & Benefits", "date": datetime.date(2026, 4, 28)},
-            {"type": "expense", "amount": 1200.0, "category": "Utilities", "description": "Electricity, Internet", "date": datetime.date(2026, 4, 15)},
-            
-            # May 2026
-            {"type": "income", "amount": 41000.0, "category": "Sales", "description": "New Client Onboarding Fee", "date": datetime.date(2026, 5, 12)},
-            {"type": "income", "amount": 18000.0, "category": "Consulting", "description": "AI Training Workshop", "date": datetime.date(2026, 5, 20)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 5, 1)},
-            {"type": "expense", "amount": 25000.0, "category": "Payroll", "description": "Staff Salaries & Benefits", "date": datetime.date(2026, 5, 28)},
-            {"type": "expense", "amount": 3500.0, "category": "Marketing", "description": "Tech Conference Booth", "date": datetime.date(2026, 5, 18)},
-
-            # Jun 2026
-            {"type": "income", "amount": 38000.0, "category": "Sales", "description": "Recurring Platform Licenses", "date": datetime.date(2026, 6, 10)},
-            {"type": "income", "amount": 21000.0, "category": "Consulting", "description": "Strategy Advisory Service", "date": datetime.date(2026, 6, 27)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 6, 1)},
-            {"type": "expense", "amount": 25000.0, "category": "Payroll", "description": "Staff Salaries & Benefits", "date": datetime.date(2026, 6, 28)},
-            {"type": "expense", "amount": 1800.0, "category": "Utilities", "description": "Electricity & Water", "date": datetime.date(2026, 6, 15)},
-            
-            # Jul 2026 (Current Month)
-            {"type": "income", "amount": 45000.0, "category": "Sales", "description": "Enterprise API Integrations", "date": datetime.date(2026, 7, 5)},
-            {"type": "income", "amount": 25000.0, "category": "Consulting", "description": "Database Migration Consult", "date": datetime.date(2026, 7, 12)},
-            {"type": "expense", "amount": 10000.0, "category": "Rent", "description": "Office Space Lease", "date": datetime.date(2026, 7, 1)},
-            {"type": "expense", "amount": 26200.0, "category": "Payroll", "description": "Employee Salaries & Paid Bonuses", "date": datetime.date(2026, 7, 15)},
-            {"type": "expense", "amount": 4200.0, "category": "Marketing", "description": "Q3 Digital Ad Campaign", "date": datetime.date(2026, 7, 10)},
-            {"type": "expense", "amount": 2100.0, "category": "Utilities", "description": "Monthly Office Utilities", "date": datetime.date(2026, 7, 15)}
+        # 5. Seed Leave Requests
+        leaves = [
+            {"employee_id": db_employees[2].id, "leave_type": "Medical", "start_date": today + datetime.timedelta(days=2), "end_date": today + datetime.timedelta(days=3), "reason": "Dental Checkup surgery", "status": "Approved"},
+            {"employee_id": db_employees[3].id, "leave_type": "Annual", "start_date": today + datetime.timedelta(days=10), "end_date": today + datetime.timedelta(days=15), "reason": "Family vacation", "status": "Pending"},
+            {"employee_id": db_employees[0].id, "leave_type": "Casual", "start_date": today - datetime.timedelta(days=15), "end_date": today - datetime.timedelta(days=14), "reason": "Moving apartment", "status": "Approved"}
         ]
+        for l in leaves:
+            db_leave = models.LeaveRequest(**l)
+            db.add(db_leave)
 
-        for record in financials:
-            db_record = models.FinancialRecord(**record)
-            db.add(db_record)
+        # 6. Seed Notices
+        notices = [
+            {"title": "Q3 General All-Hands meeting", "content": "Our Q3 all-hands meeting is scheduled for next Friday at 10 AM. We will discuss project expansion tracks and review quarterly financial margins.", "created_by": 1},
+            {"title": "Leave Policy Update", "content": "Please submit annual leave requests at least 7 working days in advance to ensure managers have time to adjust shift allocations.", "created_by": 2}
+        ]
+        for n in notices:
+            db_notice = models.Notice(**n)
+            db.add(db_notice)
+
+        # 7. Seed Expenses
+        expenses = [
+            {"employee_id": db_employees[2].id, "amount": 150.0, "category": "Travel", "description": "Client meeting downtown taxi fares", "status": "Approved"},
+            {"employee_id": db_employees[3].id, "amount": 45.0, "category": "Meals", "description": "Late shift dinner allowance", "status": "Pending"},
+            {"employee_id": db_employees[1].id, "amount": 320.0, "category": "Hardware", "description": "External monitor for corporate laptop", "status": "Approved"}
+        ]
+        for ex in expenses:
+            db_ex = models.Expense(**ex)
+            db.add(db_ex)
+            # If approved, insert corresponding record in FinancialRecord
+            if ex["status"] == "Approved":
+                db_rec = models.FinancialRecord(
+                    type="expense",
+                    amount=ex["amount"],
+                    category="Expenses",
+                    description=f"Reimbursement: {ex['description']}",
+                    date=today - datetime.timedelta(days=2)
+                )
+                db.add(db_rec)
+
+        # 8. Seed Standard Financial Records (Last 6 Months)
+        financials = [
+            {"type": "income", "amount": 30000.0, "category": "Sales", "description": "Client Licenses", "date": today - datetime.timedelta(days=120)},
+            {"type": "expense", "amount": 12000.0, "category": "Payroll", "description": "Salary rollout", "date": today - datetime.timedelta(days=120)},
+            {"type": "expense", "amount": 5000.0, "category": "Rent", "description": "Office rent", "date": today - datetime.timedelta(days=120)},
+
+            {"type": "income", "amount": 35000.0, "category": "Sales", "description": "Licenses", "date": today - datetime.timedelta(days=90)},
+            {"type": "expense", "amount": 12000.0, "category": "Payroll", "description": "Salary rollout", "date": today - datetime.timedelta(days=90)},
+            {"type": "expense", "amount": 5000.0, "category": "Rent", "description": "Office rent", "date": today - datetime.timedelta(days=90)},
+
+            {"type": "income", "amount": 42000.0, "category": "Sales", "description": "Client Licenses", "date": today - datetime.timedelta(days=60)},
+            {"type": "expense", "amount": 15000.0, "category": "Payroll", "description": "Salary rollout", "date": today - datetime.timedelta(days=60)},
+            {"type": "expense", "amount": 5000.0, "category": "Rent", "description": "Office rent", "date": today - datetime.timedelta(days=60)},
+
+            {"type": "income", "amount": 40000.0, "category": "Sales", "description": "Licenses", "date": today - datetime.timedelta(days=30)},
+            {"type": "expense", "amount": 15000.0, "category": "Payroll", "description": "Salary rollout", "date": today - datetime.timedelta(days=30)},
+            {"type": "expense", "amount": 5000.0, "category": "Rent", "description": "Office rent", "date": today - datetime.timedelta(days=30)},
+
+            {"type": "income", "amount": 55000.0, "category": "Sales", "description": "Consulting", "date": today - datetime.timedelta(days=5)},
+            {"type": "expense", "amount": 18000.0, "category": "Payroll", "description": "Salary rollout", "date": today - datetime.timedelta(days=5)},
+            {"type": "expense", "amount": 5000.0, "category": "Rent", "description": "Office rent", "date": today - datetime.timedelta(days=5)}
+        ]
+        for f in financials:
+            db_f = models.FinancialRecord(**f)
+            db.add(db_f)
 
         db.commit()
-        print("Database seeded with mock historical metrics, attendance, and employees.")
+        print("Seeding database complete. All roles, notice board items, expenses, and leaf requests created.")
 
     except Exception as e:
         db.rollback()

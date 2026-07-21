@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,22 +9,54 @@ import {
   Menu, 
   X, 
   Building2, 
-  Shield 
+  Shield,
+  Bell,
+  CheckCircle,
+  FileText
 } from 'lucide-react';
+import { notificationsAPI } from '../api';
 
 export default function Layout({ children, activeTab, setActiveTab, user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [bellOpen, setBellOpen] = useState(false);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000); // refresh notifications every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const data = await notificationsAPI.list();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to retrieve user notifications:', err);
+    }
+  };
+
+  const handleMarkRead = async (id) => {
+    try {
+      await notificationsAPI.read(id);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
-    { id: 'employees', name: 'Employees', icon: Users, adminOnly: false },
-    { id: 'attendance', name: 'Attendance', icon: Clock, adminOnly: false },
-    { id: 'payroll', name: 'Payroll', icon: Briefcase, adminOnly: false },
-    { id: 'finance', name: 'Financials', icon: DollarSign, adminOnly: true },
+    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, roles: ['Super Admin', 'HR', 'Manager'] },
+    { id: 'employees', name: 'Employees', icon: Users, roles: ['Super Admin', 'HR', 'Manager', 'Employee'] },
+    { id: 'attendance', name: 'Attendance', icon: Clock, roles: ['Super Admin', 'HR', 'Manager', 'Employee'] },
+    { id: 'payroll', name: 'Payroll', icon: Briefcase, roles: ['Super Admin', 'HR', 'Manager', 'Employee'] },
+    { id: 'finance', name: 'Financials', icon: DollarSign, roles: ['Super Admin', 'HR'] },
+    { id: 'expenses', name: 'Expenses', icon: DollarSign, roles: ['Super Admin', 'HR', 'Manager', 'Employee'] },
+    { id: 'notices', name: 'Announcements', icon: FileText, roles: ['Super Admin', 'HR', 'Manager', 'Employee'] },
   ];
 
   // Filter menu based on user role
-  const visibleMenuItems = menuItems.filter(item => !item.adminOnly || user?.role === 'Admin');
+  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role));
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -35,8 +67,8 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
             <Building2 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-bold text-slate-900 leading-none">CorpManager</h1>
-            <span className="text-xs text-slate-500 font-medium">Operations Portal</span>
+            <h1 className="font-bold text-slate-900 leading-none text-base">CorpManager</h1>
+            <span className="text-[10px] text-slate-500 font-medium tracking-wide">Enterprise Hub</span>
           </div>
         </div>
 
@@ -71,7 +103,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
               <p className="text-sm font-semibold text-slate-900 truncate">
                 {user?.username}
               </p>
-              <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500 font-medium capitalize">
+              <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500 font-semibold capitalize">
                 <Shield className="w-3.5 h-3.5 text-indigo-500" />
                 {user?.role}
               </div>
@@ -104,7 +136,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
               <Building2 className="w-8 h-8 text-indigo-600" />
               <div>
                 <h1 className="font-bold text-slate-900 leading-none">CorpManager</h1>
-                <span className="text-xs text-slate-500 font-medium">Operations Portal</span>
+                <span className="text-xs text-slate-500 font-medium">Enterprise Hub</span>
               </div>
             </div>
 
@@ -157,7 +189,7 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Navbar */}
-        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 md:px-8 z-10">
+        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 md:px-8 z-20 relative">
           <button
             onClick={() => setSidebarOpen(true)}
             className="md:hidden p-2 text-slate-500 hover:bg-slate-50 rounded-lg"
@@ -166,14 +198,66 @@ export default function Layout({ children, activeTab, setActiveTab, user, onLogo
           </button>
 
           <div className="flex-1 flex justify-end items-center gap-4">
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
               System Time: {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
+            
+            {/* Notifications Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => setBellOpen(!bellOpen)}
+                className="p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-full relative transition-all"
+              >
+                <Bell className="w-5.5 h-5.5" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4.5 h-4.5 bg-rose-500 text-[10px] text-white font-extrabold flex items-center justify-center rounded-full border-2 border-white ring-1 ring-rose-100">
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown card */}
+              {bellOpen && (
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <span className="font-bold text-xs text-slate-900">Notifications</span>
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full">{notifications.length} Unread</span>
+                  </div>
+                  <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400 font-semibold">
+                        All caught up! No unread notifications.
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className="p-3.5 hover:bg-slate-50 flex gap-2.5 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">{n.title}</h4>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{n.message}</p>
+                            <span className="text-[9px] text-slate-400 mt-1 block">
+                              {new Date(n.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleMarkRead(n.id)}
+                            className="p-1 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg self-start transition-all"
+                            title="Dismiss Notification"
+                          >
+                            <CheckCircle className="w-4.5 h-4.5" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="h-4 w-px bg-slate-200"></div>
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                System Online
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                PORTAL ACTIVE
               </span>
             </div>
           </div>

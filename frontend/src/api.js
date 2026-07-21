@@ -100,6 +100,87 @@ export const attendanceAPI = {
   },
 };
 
+export const leavesAPI = {
+  list: async () => {
+    const response = await api.get('/leaves');
+    return response.data;
+  },
+  apply: async (leaveData) => {
+    const response = await api.post('/leaves', leaveData);
+    return response.data;
+  },
+  updateStatus: async (id, status) => {
+    const response = await api.put(`/leaves/${id}/status`, { status });
+    return response.data;
+  },
+};
+
+export const documentsAPI = {
+  list: async (employeeId) => {
+    const response = await api.get(`/employees/${employeeId}/documents`);
+    return response.data;
+  },
+  upload: async (employeeId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/employees/${employeeId}/documents`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  downloadUrl: (filePath) => {
+    return `http://localhost:8000${filePath}`;
+  },
+};
+
+export const noticesAPI = {
+  list: async () => {
+    const response = await api.get('/notices');
+    return response.data;
+  },
+  create: async (noticeData) => {
+    const response = await api.post('/notices', noticeData);
+    return response.data;
+  },
+};
+
+export const notificationsAPI = {
+  list: async () => {
+    const response = await api.get('/notifications');
+    return response.data;
+  },
+  read: async (id) => {
+    const response = await api.put(`/notifications/${id}/read`);
+    return response.data;
+  },
+};
+
+export const expensesAPI = {
+  list: async () => {
+    const response = await api.get('/expenses');
+    return response.data;
+  },
+  create: async (amount, category, description, file = null) => {
+    const formData = new FormData();
+    if (file) {
+      formData.append('file', file);
+    }
+    const response = await api.post('/expenses', formData, {
+      params: { amount, category, description },
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  updateStatus: async (id, status) => {
+    const response = await api.put(`/expenses/${id}/status`, { status });
+    return response.data;
+  },
+};
+
 export const financeAPI = {
   records: async () => {
     const response = await api.get('/finance/records');

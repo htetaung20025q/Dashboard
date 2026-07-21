@@ -286,38 +286,6 @@ export default function Login({ onLoginSuccess }) {
               </span>
             )}
           </div>
-
-          {/* Seed Credentials Hint Card */}
-          {!isRegister && (
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-                Default Demonstration Accounts
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div 
-                  onClick={() => { setUsername('admin'); setPassword('admin123'); }}
-                  className="bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
-                  title="Click to auto-fill Admin login"
-                >
-                  <span className="font-semibold text-slate-700 block">Admin Role</span>
-                  <span className="text-slate-500 block">User: <code className="text-[10px] bg-slate-200/50">admin</code></span>
-                  <span className="text-slate-500 block">Pass: <code className="text-[10px] bg-slate-200/50">admin123</code></span>
-                </div>
-                <div 
-                  onClick={() => { setUsername('htet.aung'); setPassword('employee123'); }}
-                  className="bg-slate-50 p-3 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
-                  title="Click to auto-fill Employee login"
-                >
-                  <span className="font-semibold text-slate-700 block">Employee Role</span>
-                  <span className="text-slate-500 block">User: <code className="text-[10px] bg-slate-200/50">htet.aung</code></span>
-                  <span className="text-slate-500 block">Pass: <code className="text-[10px] bg-slate-200/50">employee123</code></span>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium text-center mt-3.5">
-                💡 Usernames are automatically generated as <strong className="font-bold">firstname.lastname</strong> (lowercase) upon employee registration.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

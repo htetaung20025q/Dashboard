@@ -6,6 +6,8 @@ import Employees from './components/Employees';
 import Attendance from './components/Attendance';
 import Finance from './components/Finance';
 import Payroll from './components/Payroll';
+import Expenses from './components/Expenses';
+import Notices from './components/Notices';
 import { authAPI } from './api';
 
 export default function App() {
@@ -23,7 +25,8 @@ export default function App() {
           const profile = await authAPI.getMe();
           setUser(profile);
           // Set default landing tab: Employees for employee role, Dashboard for Admin
-          setActiveTab(profile.role === 'Admin' ? 'dashboard' : 'attendance');
+          const isApprover = ['Super Admin', 'HR', 'Manager'].includes(profile.role);
+          setActiveTab(isApprover ? 'dashboard' : 'attendance');
         } catch (err) {
           console.error('Session validation failed:', err);
           // Reset token & states
@@ -44,7 +47,8 @@ export default function App() {
   const handleLoginSuccess = (userProfile) => {
     setToken(localStorage.getItem('token'));
     setUser(userProfile);
-    setActiveTab(userProfile.role === 'Admin' ? 'dashboard' : 'attendance');
+    const isApprover = ['Super Admin', 'HR', 'Manager'].includes(userProfile.role);
+    setActiveTab(isApprover ? 'dashboard' : 'attendance');
   };
 
   const handleLogout = async () => {
@@ -79,17 +83,21 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return user.role === 'Admin' ? <Dashboard /> : <Attendance user={user} />;
+        return <Dashboard />;
       case 'employees':
         return <Employees user={user} />;
       case 'attendance':
         return <Attendance user={user} />;
       case 'finance':
-        return user.role === 'Admin' ? <Finance /> : <Employees user={user} />;
+        return <Finance />;
       case 'payroll':
         return <Payroll user={user} />;
+      case 'expenses':
+        return <Expenses user={user} />;
+      case 'notices':
+        return <Notices user={user} />;
       default:
-        return user.role === 'Admin' ? <Dashboard /> : <Attendance user={user} />;
+        return ['Super Admin', 'HR', 'Manager'].includes(user?.role) ? <Dashboard /> : <Attendance user={user} />;
     }
   };
 
