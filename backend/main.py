@@ -63,6 +63,15 @@ def verify_roles(allowed_roles: List[str]):
 
 # --- AUTHENTICATION ENDPOINTS ---
 
+@app.post("/api/auth/seed")
+def trigger_seed_database():
+    try:
+        from seed import seed_db
+        seed_db()
+        return {"detail": "Database seeded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/auth/login", response_model=schemas.Token)
 def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(db, form_data.username, form_data.password)
