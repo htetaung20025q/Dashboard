@@ -414,6 +414,17 @@ def read_announcements(
         response_notices.append(resp)
     return response_notices
 
+@app.delete("/api/notices/{id}")
+def delete_notice_endpoint(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(verify_roles(["Super Admin", "HR", "Manager"]))
+):
+    success = crud.delete_notice(db=db, notice_id=id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Notice announcement not found")
+    return {"detail": "Notice deleted successfully"}
+
 
 # --- IN-APP NOTIFICATIONS ENDPOINTS ---
 

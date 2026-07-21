@@ -144,6 +144,10 @@ export const noticesAPI = {
     const response = await api.post('/notices', noticeData);
     return response.data;
   },
+  delete: async (id) => {
+    const response = await api.delete(`/notices/${id}`);
+    return response.data;
+  },
 };
 
 export const notificationsAPI = {

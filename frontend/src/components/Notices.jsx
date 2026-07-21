@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Building2, Calendar, FileText, Check, X, Megaphone, User } from 'lucide-react';
+import { Plus, Calendar, Megaphone, X, Trash2 } from 'lucide-react';
 import { noticesAPI } from '../api';
 
 export default function Notices({ user }) {
@@ -54,6 +54,17 @@ export default function Notices({ user }) {
       setFormError('Failed to publish notice announcement');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteNotice = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this announcement notice?')) return;
+    try {
+      await noticesAPI.delete(id);
+      fetchNotices();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete announcement notice.');
     }
   };
 
@@ -113,13 +124,24 @@ export default function Notices({ user }) {
               </div>
 
               {/* Publisher User Metadata */}
-              <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
-                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold uppercase text-[9px]">
-                  {n.creator_name?.substring(0, 2)}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold uppercase text-[9px]">
+                    {n.creator_name?.substring(0, 2)}
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                    Posted by <span className="text-slate-700 font-extrabold">{n.creator_name}</span>
+                  </div>
                 </div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                  Posted by <span className="text-slate-700 font-extrabold">{n.creator_name}</span>
-                </div>
+                {isApprover && (
+                  <button
+                    onClick={() => handleDeleteNotice(n.id)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                    title="Delete Announcement"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}

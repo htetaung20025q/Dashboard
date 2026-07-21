@@ -260,6 +260,14 @@ def create_notice(db: Session, user_id: int, notice: schemas.NoticeCreate):
 def get_notices(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Notice).order_by(models.Notice.created_at.desc()).offset(skip).limit(limit).all()
 
+def delete_notice(db: Session, notice_id: int) -> bool:
+    db_notice = db.query(models.Notice).filter(models.Notice.id == notice_id).first()
+    if not db_notice:
+        return False
+    db.delete(db_notice)
+    db.commit()
+    return True
+
 
 # --- Notifications CRUD ---
 def create_notification(db: Session, user_id: int, title: str, message: str):
