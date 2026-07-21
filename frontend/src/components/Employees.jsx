@@ -48,7 +48,7 @@ export default function Employees({ user }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [docUploading, setDocUploading] = useState(false);
 
-  const canManage = ['Super Admin', 'HR'].includes(user?.role);
+  const canManage = ['Super Admin', 'HR', 'Manager'].includes(user?.role);
   const canUpload = ['Super Admin', 'HR', 'Manager'].includes(user?.role);
 
   useEffect(() => {

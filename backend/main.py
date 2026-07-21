@@ -134,7 +134,7 @@ def read_employees(
 def create_new_employee(
     employee: schemas.EmployeeCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(verify_roles(["Super Admin", "HR"]))
+    current_user: models.User = Depends(verify_roles(["Super Admin", "HR", "Manager"]))
 ):
     db_emp = crud.get_employee_by_email(db, email=employee.email)
     if db_emp:
@@ -150,15 +150,15 @@ def update_employee_details(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # HR/Super Admin can update anything. Users themselves can update phone/address.
-    is_hr = current_user.role in ["Super Admin", "HR"]
+    # HR/Super Admin/Manager can update anything. Users themselves can update phone/address.
+    is_authorized_editor = current_user.role in ["Super Admin", "HR", "Manager"]
     is_self = current_user.employee_id == id
     
-    if not is_hr and not is_self:
+    if not is_authorized_editor and not is_self:
          raise HTTPException(status_code=403, detail="Unauthorized to modify this employee profile")
          
-    # If self, check they only modify phone, address, emergency info
-    if not is_hr and is_self:
+    # If self and not authorized, check they only modify phone, address, emergency info
+    if not is_authorized_editor and is_self:
         # Enforce restricted fields
         employee_update.base_salary = None
         employee_update.bonus = None
@@ -174,7 +174,7 @@ def update_employee_details(
 def delete_employee_record(
     id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(verify_roles(["Super Admin", "HR"]))
+    current_user: models.User = Depends(verify_roles(["Super Admin", "HR", "Manager"]))
 ):
     success = crud.delete_employee(db=db, employee_id=id)
     if not success:
