@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'https://dashboard-vggo.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -131,7 +131,7 @@ export const documentsAPI = {
     return response.data;
   },
   downloadUrl: (filePath) => {
-    return `http://localhost:8000${filePath}`;
+    return `https://dashboard-vggo.onrender.com${filePath}`;
   },
 };
 
