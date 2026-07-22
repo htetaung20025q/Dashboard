@@ -4,8 +4,8 @@ import { authAPI } from '../api';
 
 export default function Login({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [username, setUsername] = useState('superadmin');
-  const [password, setPassword] = useState('admin2007');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -128,7 +128,7 @@ export default function Login({ onLoginSuccess }) {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-950 font-medium transition-all duration-200"
-                    placeholder=""
+                    placeholder="Enter username"
                   />
                 </div>
               </div>
@@ -147,7 +147,7 @@ export default function Login({ onLoginSuccess }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="block w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-950 font-medium transition-all duration-200"
-                    placeholder=""
+                    placeholder="Enter password"
                   />
                   <button
                     type="button"
