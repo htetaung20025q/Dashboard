@@ -15,11 +15,11 @@ def seed_db():
         # 1. Create Default Super Admin (unmapped to employee)
         admin_in = schemas.UserCreate(
             username="superadmin",
-            password="admin123",
+            password="admin2007",
             role="Super Admin"
         )
         crud.create_user(db, admin_in)
-        print("Super Admin created (superadmin / admin123)")
+        print("Super Admin created (superadmin / admin2007)")
 
         # 2. Create Employees with diverse roles
         employees_data = [
